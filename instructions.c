@@ -4,7 +4,30 @@
 #include "instructions.h"
 #include "_8080emulator.h"
 
-void emulate8080_inst(state8080 *state) {
+// copied from https://github.com/kpmiller/emulator101
+uint8_t cycles8080[] = {
+	4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4, //0x00..0x0f
+	4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4, //0x10..0x1f
+	4, 10, 16, 5, 5, 5, 7, 4, 4, 10, 16, 5, 5, 5, 7, 4, //etc
+	4, 10, 13, 5, 10, 10, 10, 4, 4, 10, 13, 5, 5, 5, 7, 4,
+	
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5, //0x40..0x4f
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+	7, 7, 7, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 5,
+	
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4, //0x80..8x4f
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	
+	11, 10, 10, 10, 17, 11, 7, 11, 11, 10, 10, 10, 10, 17, 7, 11, //0xc0..0xcf
+	11, 10, 10, 10, 17, 11, 7, 11, 11, 10, 10, 10, 10, 17, 7, 11, 
+	11, 10, 10, 18, 17, 11, 7, 11, 11, 5, 10, 5, 17, 17, 7, 11, 
+	11, 10, 10, 4, 17, 11, 7, 11, 11, 5, 10, 4, 17, 17, 7, 11, 
+};
+
+size_t emulate8080_inst(state8080 *state) {
     // the size of an instruction that increments the pc register after
     // each instruction
     size_t inst_siz = 1;
@@ -765,6 +788,7 @@ void emulate8080_inst(state8080 *state) {
         break;
     }
     state->pc += inst_siz;
+    return cycles8080[inst];
 }
 
 static unsigned lxi(state8080 *state, uint8_t *reg0, uint8_t *reg1) {
@@ -787,6 +811,7 @@ static unsigned inx(uint8_t *reg0, uint8_t *reg1) {
 static unsigned inr(state8080 *state, uint8_t *reg) {
     uint16_t n = *reg + 1;
 
+    check_auxillary(state, *reg, 1);
     *reg = n & 0xff;
     set_arthmetic_flags(state, *reg);
     return 1;
@@ -795,6 +820,7 @@ static unsigned inr(state8080 *state, uint8_t *reg) {
 static unsigned dcr(state8080 *state, uint8_t *reg) {
     uint16_t n = *reg - 1;
 
+    check_auxillary(state, *reg, -1);
     *reg = n & 0xff;
     set_arthmetic_flags(state, *reg);
     return 1;
@@ -814,9 +840,12 @@ static unsigned rlc(state8080 *state) {
 }
 
 static unsigned dad(state8080 *state, uint8_t reg0, uint8_t reg1) {
-    uint32_t n;
+    uint32_t n, tmp, hl;
 
-    n = (((uint32_t)state->h + reg0) << 8) | ((uint32_t)state->l + reg1);
+    tmp = (reg0 << 8) | reg1;
+    hl = (state->h << 8) | state->l;
+    n = tmp + hl;
+
     state->h = (n & 0xff00) >> 8;
     state->l = n & 0x00ff;
     state->flags.cy = n > (n & 0xffff);
@@ -854,7 +883,7 @@ static unsigned rar(state8080 *state) {
     uint8_t bit0 = state->a & 0x01;
     uint8_t bit7 = (state->a & 0x80) > 0;
 
-    state->a = (state->a >> 1) | (bit7 << 7);
+    state->a = (state->a >> 1) | (state->flags.cy << 7);
     state->flags.cy = bit0;
     return 1;
 }
@@ -869,7 +898,17 @@ static unsigned shld(state8080 *state) {
 }
 
 static unsigned daa(state8080 *state) {
-    //TODO
+    if ((state->a & 0x0f) > 9 || state->flags.ac) {
+        state->a += 6;
+        check_auxillary(state, state->a, 6);
+    }
+    if ((state->a & 0xf0) > 0x90 || state->flags.ac) {
+        uint16_t n = state->a + 6;
+        if (n > 0xff)
+            state->flags.cy = true;
+        state->a = n & 0xff;
+    }
+    set_arthmetic_flags(state, state->a);
     return 1;
 }
 
@@ -927,6 +966,8 @@ static unsigned hlt(state8080 *state) {
 static unsigned add(state8080 *state, uint8_t reg) {
     uint16_t n = (uint16_t)state->a + reg;
 
+    
+    check_auxillary(state, reg, state->a);
     state->a = n & 0xff;
     set_arthmetic_flags(state, n);
     return 1;
@@ -934,6 +975,8 @@ static unsigned add(state8080 *state, uint8_t reg) {
 
 static unsigned adc(state8080 *state, uint8_t reg) {
     uint16_t n = (uint16_t)state->a + reg + state->flags.cy;
+
+    check_auxillary(state, reg, state->a + state->flags.cy);
     state->a = n & 0xff;
     set_arthmetic_flags(state, n);
     return 1;
@@ -942,6 +985,7 @@ static unsigned adc(state8080 *state, uint8_t reg) {
 static unsigned sub(state8080 *state, uint8_t reg) {
     uint16_t n = (uint16_t)state->a - reg;
 
+    check_auxillary(state, state->a, -reg);
     state->a = n & 0xff;
     set_arthmetic_flags(state, n);
     return 1;
@@ -949,7 +993,8 @@ static unsigned sub(state8080 *state, uint8_t reg) {
 
 static unsigned sbb(state8080 *state, uint8_t reg) {
     uint16_t n = (uint16_t)state->a - reg - state->flags.cy;
-
+ 
+    check_auxillary(state, state->a, -reg - state->flags.cy);
     state->a = n & 0xff;
     set_arthmetic_flags(state, n);
     return 1;
@@ -1020,12 +1065,14 @@ static unsigned push(state8080 *state, uint8_t reg0, uint8_t reg1) {
 static unsigned adi(state8080 *state) {
     uint16_t n = state->a + state->memory[state->pc+1];
 
+    check_auxillary(state, state->a, state->memory[state->pc+1]);
     state->a = n & 0xff;
     set_arthmetic_flags(state, n);
     return 2;
 }
 
 static unsigned rst(state8080 *state, unsigned n) {
+    push(state, ((state->pc+3) & 0xff00) >> 8, (state->pc+3) & 0x00ff);
     state->pc = 8 * n;
     return 0;
 }
@@ -1087,9 +1134,7 @@ static unsigned call(state8080 *state) {
         exit(0);
     }
 #endif
-    state->memory[state->sp-2] = (state->pc+3) & 0x00ff;
-    state->memory[state->sp-1] = ((state->pc+3) & 0xff00) >> 8;
-    state->sp -= 2;
+    push(state, ((state->pc+3) & 0xff00) >> 8, (state->pc+3) & 0x00ff);
     state->pc = addr;
     return 0;
 }
@@ -1097,6 +1142,8 @@ static unsigned call(state8080 *state) {
 static unsigned aci(state8080 *state) {
     uint16_t n = state->a + state->memory[state->pc+1] + state->flags.cy;
 
+    check_auxillary(state,
+            state->a, state->memory[state->pc+1]+state->flags.cy);
     state->a = n & 0xff;
     set_arthmetic_flags(state, n);
     return 2;
@@ -1129,6 +1176,7 @@ static unsigned cnc(state8080 *state) {
 static unsigned sui(state8080 *state) {
     uint16_t n = state->a - state->memory[state->pc+1];
 
+    check_auxillary(state, state->a, -state->memory[state->pc+1]);
     state->a = n & 0xff;
     set_arthmetic_flags(state, n);
     return 2;
@@ -1161,6 +1209,8 @@ static unsigned cc(state8080 *state) {
 static unsigned sbi(state8080 *state) {
     uint16_t n = state->a - state->memory[state->pc+1] - state->flags.cy;
 
+    check_auxillary(state,
+            state->a, -state->memory[state->pc+1]-state->flags.cy);
     state->a = n & 0xff;
     set_arthmetic_flags(state, n);
     return 2;
@@ -1197,7 +1247,6 @@ static unsigned cpo(state8080 *state) {
 }
 
 static unsigned ani(state8080 *state) {
-
     state->a &= state->memory[state->pc+1];
     set_arthmetic_flags(state, state->a);
     return 2;
@@ -1239,7 +1288,6 @@ static unsigned cpe(state8080 *state) {
 }
 
 static unsigned xri(state8080 *state) {
-
     state->a ^= state->memory[state->pc+1];
     set_arthmetic_flags(state, state->a);
     return 2;
@@ -1307,6 +1355,7 @@ static unsigned cm(state8080 *state) {
 static unsigned cpi(state8080 *state) {
     uint16_t n;
 
+    check_auxillary(state, state->a, -state->memory[state->pc+1]);
     n = (uint16_t)state->a - (uint16_t)state->memory[state->pc+1];
     set_arthmetic_flags(state, n);
     return 2;
@@ -1317,7 +1366,6 @@ static void set_arthmetic_flags(state8080 *state, uint16_t n) {
     state->flags.s = (n & 0x80) != 0;
     state->flags.p = check_parity((uint8_t)(n & 0xff));
     state->flags.cy = n > (n & 0xff);
-    state->flags.ac = check_auxillary(n);
 }
 
 static bool check_parity(uint8_t n) {
@@ -1331,7 +1379,8 @@ static bool check_parity(uint8_t n) {
     return parity % 2 == 0;
 }
 
-static bool check_auxillary(uint16_t reg) {
+static bool check_auxillary(state8080 *state, uint8_t reg0, uint8_t reg1) {
+    state->flags.ac = ((reg0 & 0xf) + (reg1 & 0xf)) > 0xf;
     return true;
 }
 

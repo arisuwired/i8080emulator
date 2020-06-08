@@ -1,6 +1,6 @@
 #!/bin/env python3
 
-FILENAME = "_8080emulator.c"
+FILENAME = "instructions.c"
 TYPE = "static unsigned"
 
 if __name__ == "__main__":

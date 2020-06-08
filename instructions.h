@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "_8080emulator.h"
 
-void emulate8080_inst(state8080 *state);
+//void emulate8080_inst(state8080 *state);
 
 static unsigned lxi(state8080 *state, uint8_t *reg0, uint8_t *reg1);
 static unsigned stax(state8080 *state, uint8_t reg0, uint8_t reg1);
@@ -87,7 +87,7 @@ static unsigned cpi(state8080 *state);
 static void unimplemented_inst(state8080 *state);
 
 static void set_arthmetic_flags(state8080 *state, uint16_t n);
-static bool check_auxillary(uint16_t n);
+static bool check_auxillary(state8080 *state, uint8_t n, uint8_t);
 static bool check_parity(uint8_t n);
 
 #endif

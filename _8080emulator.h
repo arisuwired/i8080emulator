@@ -6,7 +6,7 @@
 #include "opcodes.h"
 #include "_8080state.h"
 
-void emulate8080_inst(state8080 *state);
+size_t emulate8080_inst(state8080 *state);
 int sprint_inst(uint8_t *file_memory, size_t i, char *dst);
 size_t inst_fmt(
         char *dst,
