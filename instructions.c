@@ -898,6 +898,7 @@ static unsigned shld(state8080 *state) {
 }
 
 static unsigned daa(state8080 *state) {
+    printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     if ((state->a & 0x0f) > 9 || state->flags.ac) {
         state->a += 6;
         check_auxillary(state, state->a, 6);
@@ -1072,6 +1073,7 @@ static unsigned adi(state8080 *state) {
 }
 
 static unsigned rst(state8080 *state, unsigned n) {
+    printf("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB");
     push(state, ((state->pc+3) & 0xff00) >> 8, (state->pc+3) & 0x00ff);
     state->pc = 8 * n;
     return 0;

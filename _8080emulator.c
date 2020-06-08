@@ -112,13 +112,13 @@ int main(int argc, char *argv[]) {
                 interrupt = 1;
                 screen_draw(&state->memory[0x2400]);
             }
-            cycles -= us2cycles(2, 8000);
+            cycles = 0;
         }
 
         if (state->pc == 0x87) {
             printf("ISR Q !!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         }
-        if ((state->sp != 0) &&(state->sp < 0x2000))    
+        if ((state->sp != 0) &&(state->sp < 0x2000) || state->sp > 0x4000)    
                printf("rip stack %04x\n", state->sp);    
 #endif
         if (debug) {
