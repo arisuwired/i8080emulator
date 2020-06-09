@@ -26,7 +26,6 @@ int main(int argc, char *argv[]) {
     int interrupt = 1;
     long double current_time;
     long double time_after;
-    long double next_interrupt;
     bool quit = false;
 
 
@@ -51,7 +50,6 @@ int main(int argc, char *argv[]) {
     state->int_enable = 1;
 
     e = malloc(sizeof(SDL_Event));
-    next_interrupt = time_us() + 1000000.0/60.0;
     screen_init(WIDTH, HEIGHT);
     while (!quit) {
         cycles_before = cycles;
@@ -78,9 +76,7 @@ int main(int argc, char *argv[]) {
 
         opcode = state->memory[state->pc];
         if (opcode == OPCODE_IN_D8) {
-            port = state->memory[state->pc+1];
-            state->a = machine_in(state, port);
-            state->pc += 2;
+            port = state->memory[state->pc+1]; state->a = machine_in(state, port); state->pc += 2;
             cycles += 3;
         } else if (opcode == OPCODE_OUT_D8) {
             port = state->memory[state->pc+1];
@@ -91,7 +87,7 @@ int main(int argc, char *argv[]) {
             cycles += emulate8080_inst(state);
         }
 
-        time_after = current_time + cycles2us(2, cycles-cycles_before);
+        time_after = current_time + cycles2us(2, cycles-(cycles_before*1.5));
         while (current_time < time_after) {
             current_time = time_us();
         }
@@ -103,11 +99,11 @@ int main(int argc, char *argv[]) {
         if ((cycles > us2cycles(2, 8000)) && state->int_enable) {
             state->int_enable = 0;
             if (interrupt == 1) {
-                printf("ISR 1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+                //printf("ISR 1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
                 generate_interrupt(state, 1);
                 interrupt = 2;
             } else {
-                printf("ISR 2 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+                //printf("ISR 2 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
                 generate_interrupt(state, 2);
                 interrupt = 1;
                 screen_draw(&state->memory[0x2400]);
@@ -116,9 +112,9 @@ int main(int argc, char *argv[]) {
         }
 
         if (state->pc == 0x87) {
-            printf("ISR Q !!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+            //printf("ISR Q !!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         }
-        if ((state->sp != 0) &&(state->sp < 0x2000) || state->sp > 0x4000)    
+        if ((state->sp < 0x2000) || state->sp > 0x4000)    
                printf("rip stack %04x\n", state->sp);    
 #endif
         if (debug) {

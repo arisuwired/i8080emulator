@@ -121,9 +121,9 @@ uint8_t machine_in(state8080 *state, uint8_t port) {
             ret = in2;
             break;
         case 3:
-            printf("before: %x >> %x\t", shift_register, (8-shift_offset));
+            //printf("before: %x >> %x\t", shift_register, (8-shift_offset));
             ret = (shift_register >> (8-shift_offset)) & 0xff;       
-            printf("after: %x\n", ret);
+            //printf("after: %x\n", ret);
             break;
         default:
             ret = state->a;
@@ -151,7 +151,7 @@ static SDL_Window *window;
 static SDL_Renderer *renderer;
 static int w, h;
 
-void screen_init(int height, int width) {
+void screen_init(int width, int height) {
     w = width;
     h = height;
     SDL_Init(SDL_INIT_VIDEO);
@@ -159,8 +159,8 @@ void screen_init(int height, int width) {
             "title",
             SDL_WINDOWPOS_CENTERED,
             SDL_WINDOWPOS_CENTERED,
-            height,
             width,
+            height,
             0
             );
     if (window == NULL) {
@@ -194,8 +194,8 @@ void screen_draw(uint8_t *src) {
             else
                 SDL_SetRenderDrawColor(renderer, 0, 100, 100, 255);
             byte >>= 1;
-            SDL_RenderDrawPoint(renderer, x, w-y);
-            if (++y >= w) {
+            SDL_RenderDrawPoint(renderer, x, h-y);
+            if (++y >= h) {
                 y = 0;
                 x++;
             }

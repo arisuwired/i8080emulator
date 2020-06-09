@@ -881,7 +881,6 @@ static unsigned ral(state8080 *state) {
 
 static unsigned rar(state8080 *state) {
     uint8_t bit0 = state->a & 0x01;
-    uint8_t bit7 = (state->a & 0x80) > 0;
 
     state->a = (state->a >> 1) | (state->flags.cy << 7);
     state->flags.cy = bit0;
